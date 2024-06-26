@@ -3,6 +3,7 @@ package com.example.truckerapp;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
+// User.java
 @Entity(tableName = "users")
 public class User {
     @PrimaryKey(autoGenerate = true)

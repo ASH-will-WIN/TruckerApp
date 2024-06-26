@@ -8,12 +8,12 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.room.Room;
-
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -55,7 +55,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION_PERMISSION);
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, REQUEST_LOCATION_PERMISSION);
         } else {
             getLocation();
         }
@@ -65,7 +65,14 @@ public class MainActivity extends AppCompatActivity {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                db.userDao().insert(new User(phoneNumber));
+                // Use default values for name, password, latitude, and longitude
+                String name = "defaultName"; // Replace with actual name if available
+                String password = "defaultPassword"; // Replace with actual password if available
+                double latitude = 0.0; // Replace with actual latitude if available
+                double longitude = 0.0; // Replace with actual longitude if available
+
+                User user = new User(name, phoneNumber, password, latitude, longitude);
+                db.userDao().insert(user);
             }
         }).start();
     }
@@ -81,21 +88,47 @@ public class MainActivity extends AppCompatActivity {
     private void startCall(String phoneNumber) {
         Intent callIntent = new Intent(Intent.ACTION_CALL);
         callIntent.setData(Uri.parse("tel:" + phoneNumber));
-        startActivity(callIntent);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED) {
+            startActivity(callIntent);
+        } else {
+            Toast.makeText(this, "Call permission not granted", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void getLocation() {
-        fusedLocationClient.getLastLocation()
-                .addOnSuccessListener(this, new OnSuccessListener<Location>() {
-                    @Override
-                    public void onSuccess(android.location.Location location) {
-                        if (location != null) {
-                            double latitude = location.getLatitude();
-                            double longitude = location.getLongitude();
-                            // Use the location data as needed
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, REQUEST_LOCATION_PERMISSION);
+        } else {
+            fusedLocationClient.getLastLocation()
+                    .addOnSuccessListener(this, new OnSuccessListener<android.location.Location>() {
+                        @Override
+                        public void onSuccess(android.location.Location location) {
+                            if (location != null) {
+                                double latitude = location.getLatitude();
+                                double longitude = location.getLongitude();
+                                // Use the location data as needed
+                                // Update the user's location data in the database if needed
+                                updateUserLocation(latitude, longitude);
+                            }
                         }
-                    }
-                });
+                    });
+        }
+    }
+
+    private void updateUserLocation(final double latitude, final double longitude) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                String phoneNumber = phoneNumberEditText.getText().toString().trim();
+                User user = db.userDao().findByPhoneNumber(phoneNumber);
+                if (user != null) {
+                    user.latitude = latitude;
+                    user.longitude = longitude;
+                    db.userDao().update(user);
+                }
+            }
+        }).start();
     }
 
     @Override
@@ -106,13 +139,13 @@ public class MainActivity extends AppCompatActivity {
                 String phoneNumber = phoneNumberEditText.getText().toString().trim();
                 startCall(phoneNumber);
             } else {
-                // Permission denied, handle appropriately
+                Toast.makeText(this, "Call permission denied", Toast.LENGTH_SHORT).show();
             }
         } else if (requestCode == REQUEST_LOCATION_PERMISSION) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            if (grantResults.length > 0 && (grantResults[0] == PackageManager.PERMISSION_GRANTED || grantResults[1] == PackageManager.PERMISSION_GRANTED)) {
                 getLocation();
             } else {
-                // Permission denied, handle appropriately
+                Toast.makeText(this, "Location permission denied", Toast.LENGTH_SHORT).show();
             }
         }
     }

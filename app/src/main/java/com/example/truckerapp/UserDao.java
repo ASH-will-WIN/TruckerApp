@@ -20,4 +20,7 @@ public interface UserDao {
 
     @Update
     void update(User user);
+
+    @Query("SELECT * FROM users WHERE phoneNumber = :phoneNumber")
+    User findByPhoneNumber(String phoneNumber);
 }

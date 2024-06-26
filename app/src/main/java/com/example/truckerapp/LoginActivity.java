@@ -17,7 +17,7 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_login); // Ensure this matches your XML file name
+        setContentView(R.layout.activity_login);
 
         phoneEditText = findViewById(R.id.phoneEditText);
         passwordEditText = findViewById(R.id.passwordEditText);
@@ -34,17 +34,20 @@ public class LoginActivity extends AppCompatActivity {
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        User user = db.userDao().login(phone, password);
-                        if (user != null) {
-                            Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-                            intent.putExtra("userId", user.id);
-                            startActivity(intent);
-                            finish();
+                        User user = db.userDao().findByPhoneNumber(phone);
+                        if (user != null && user.password.equals(password)) {
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    startActivity(new Intent(LoginActivity.this, MainActivity.class));
+                                    finish();
+                                }
+                            });
                         } else {
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    // Show login error
+                                    passwordEditText.setError("Invalid phone number or password");
                                 }
                             });
                         }
